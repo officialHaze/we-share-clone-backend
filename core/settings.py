@@ -19,7 +19,7 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
-DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50 MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 100000000  # 100 MB
 
 # Application definition
 
@@ -35,8 +35,7 @@ INSTALLED_APPS = [
     'files',
 
     'corsheaders',
-    'cloudinary_storage',
-    'cloudinary',
+    'rest_framework',
 ]
 
 MIDDLEWARE = [
@@ -53,6 +52,21 @@ MIDDLEWARE = [
 #cors allowed origins
 CORS_ALLOWED_ORIGINS = [
     os.environ.get('LOCAL_ALLOWED_ORIGIN')
+]
+
+#cors allowed headers
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+    "admin-token",
+    "admin_token"
 ]
 
 ROOT_URLCONF = 'core.urls'
@@ -131,3 +145,10 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 #media settings
 MEDIA_ROOT = os.path.join(BASE_DIR, 'uploads')
+
+#permission classes
+REST_FRAMEWORK = {
+    'DEFAULT_PERMISSION_CLASSES':[
+        'files.permissions.AdminTokenPermission'
+    ]
+}

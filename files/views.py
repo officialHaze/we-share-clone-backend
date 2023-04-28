@@ -1,43 +1,43 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from django.core.files.storage import FileSystemStorage
+from .permissions import AdminTokenPermission
 from .models import File, ShortURL
 from dotenv import load_dotenv
-from filestack import Client
-from filestack.exceptions import FilestackHTTPError
 from nacl.secret import SecretBox
 import shortuuid
 import base64
 import datetime
 import os
 import io
+import dropbox
+import dropbox.files
 
 load_dotenv()
 
-client = Client(os.environ.get('FILESTACK_API_KEY'))
+access_token = os.environ.get('DROPBOX_ACCESS_TOKEN')
+dbx = dropbox.Dropbox(access_token) #create a dropbox instance
 
 encryption_key = os.environ.get('ENCRYPTION_KEY')
 decryption_key = os.environ.get('DECRYPTION_KEY')
 
 
-
-# def binary_data(file):
+# def binary_data(file, filename):
 #     fs = FileSystemStorage()
-#     filename = fs.save(file.name, file)
+#     filename = fs.save(filename, file)
 #     file_path = fs.path(filename)
 #     with open(file_path, 'rb') as f:
 #         file_binary_data = f.read()
 #     return [file_binary_data, filename]
 
 
-def delete_local_file(filename):
-    fs = FileSystemStorage()
-    file_path = fs.path(filename)
-    try:
-        os.remove(file_path)
-        return 'File deleted'
-    except:
-        return 'Error while deleting the file'
+# def delete_local_file(filename):
+#     fs = FileSystemStorage()
+#     file_path = fs.path(filename)
+#     try:
+#         os.remove(file_path)
+#         return 'File deleted'
+#     except:
+#         return 'Error while deleting the file'
 
 
 def populate_database(*args, **kwargs):
@@ -54,6 +54,18 @@ def check_expiry(id):
         query_set[0].delete()
         return True
     return False
+
+
+def extract_file_extension(filename):
+    extension = filename.rsplit('.', 1)[-1]
+    return extension
+
+def make_url_downloadable(url):
+    url_without_param = url.rsplit("?", 1)[0]
+    dl_param = '?dl=1'
+    downloadable_url = url_without_param+dl_param
+    return downloadable_url
+
 
 
 @api_view(["POST"])
@@ -85,23 +97,25 @@ def upload_file(req, *args, **kwargs):
     decrypted_file = secret_box.decrypt(file_encrypted, nonce)
 
 
-    # Set the expiration time for the uploaded file to 24 hours from now
+    # Set the expiration time for the uploaded file to 7 days from now
     expiration_time = datetime.datetime.now() + datetime.timedelta(days=7)
     expiration_time_str = expiration_time.strftime('%Y-%m-%d %H:%M:%S')
 
-    store_params={
-        'mimetype': decrypted_file_type,
-        'filename': decrypted_file_orginal_name
-    }
-    try:
-        file_link = client.upload(
-            file_obj=io.BytesIO(decrypted_file),
-            store_params=store_params,
-            )
-    except:
-        raise FilestackHTTPError()
+    #get the file extension
+    extension = extract_file_extension(decrypted_file_orginal_name)
 
-    download_url = file_link.url + '?dl=true'
+    path = f'/files/uploads/{decrypted_file_name}.{extension}'
+
+    #testing dropbox api
+    try:
+        dbx.files_upload(decrypted_file, path=path, autorename=True)
+    except dropbox.files.UploadError():
+        return Response({'detail':'Error uploading file!'}, status=500)
+
+    shared_link_obj = dbx.sharing_create_shared_link(path=path)
+
+    url = shared_link_obj.url
+    download_url = make_url_downloadable(url)
 
     id = populate_database(
         file_name=decrypted_file_name,
