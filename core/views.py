@@ -1,5 +1,6 @@
 from django.shortcuts import redirect
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework import permissions
 from files.models import ShortURL
 from dotenv import load_dotenv
 import os
@@ -21,6 +22,7 @@ def get_long_url(id):
 
 
 @api_view(["GET"])
+@permission_classes([permissions.AllowAny])
 def redirect_to_long_url(req, *args, **kwargs):
     id = kwargs.get('id')
     try:

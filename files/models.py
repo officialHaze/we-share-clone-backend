@@ -19,6 +19,7 @@ class File(models.Model):
 class ShortURL(models.Model):
     id = models.CharField(_('URL Id'), max_length=8, primary_key=True)
     long_url = models.TextField(_('Long URL'))
+    short_url = models.TextField(_('Short URL'))
     visited = models.IntegerField(_('Visitors'), default=0)
     created = models.DateTimeField(_('Created on'), auto_now_add=True)
 

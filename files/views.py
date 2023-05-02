@@ -1,6 +1,6 @@
 from rest_framework.decorators import api_view
+from django.core.files.storage import FileSystemStorage
 from rest_framework.response import Response
-from .permissions import AdminTokenPermission
 from .models import File, ShortURL
 from dotenv import load_dotenv
 from nacl.secret import SecretBox
@@ -14,8 +14,18 @@ import dropbox.files
 
 load_dotenv()
 
-access_token = os.environ.get('DROPBOX_ACCESS_TOKEN')
-dbx = dropbox.Dropbox(access_token) #create a dropbox instance
+app_key = os.environ.get('DROPBOX_KEY')
+app_secret = os.environ.get('DROPBOX_SECRET')
+refresh_token = os.environ.get('DROPBOX_REFRESH_TOKEN')
+
+expiration_time_oauth = datetime.datetime.now() + datetime.timedelta(days=29)
+expiration_time_str_oauth = expiration_time_oauth.strftime('%Y-%m-%d %H:%M:%S')
+dbx = dropbox.Dropbox(
+    app_key=app_key,
+    app_secret=app_secret,
+    oauth2_refresh_token=refresh_token,
+    oauth2_access_token_expiration=expiration_time_oauth
+    ) #create a dropbox instance
 
 encryption_key = os.environ.get('ENCRYPTION_KEY')
 decryption_key = os.environ.get('DECRYPTION_KEY')
@@ -40,8 +50,13 @@ decryption_key = os.environ.get('DECRYPTION_KEY')
 #         return 'Error while deleting the file'
 
 
-def populate_database(*args, **kwargs):
-    instance = File.objects.create(**kwargs)
+def update_database(*args, **kwargs):
+    download_url = kwargs.get('file')
+    qs = File.objects.filter(file=download_url)
+    if qs:
+        instance = qs[0]
+    else:
+        instance = File.objects.create(**kwargs)
     return instance.id
 
 
@@ -57,73 +72,149 @@ def check_expiry(id):
 
 
 def extract_file_extension(filename):
-    extension = filename.rsplit('.', 1)[-1]
-    return extension
+    divided_filename = filename.rsplit('.', 1)
+    file_name = divided_filename[0]
+    extension = divided_filename[-1]
+    return [file_name, extension]
 
-def make_url_downloadable(url):
+
+def downloadable_url(url):
     url_without_param = url.rsplit("?", 1)[0]
     dl_param = '?dl=1'
     downloadable_url = url_without_param+dl_param
     return downloadable_url
 
 
+def handle_encryption(content):
+    secret_key = encryption_key.encode('utf-8')
+    secret_box = SecretBox(secret_key)
+    encryption = secret_box.encrypt(content.encode('utf-8'))
+    encrypted_content = encryption.ciphertext
+    nonce = encryption.nonce
+    return [encrypted_content, nonce]
+
+
+#automate the process of decryption
+def handle_decryption(*args, nonce):
+    secret_key = decryption_key.encode('utf-8')
+    secret_box = SecretBox(secret_key)
+    decrypted_datas = []
+    for encrypted_data in args:
+        encrypted_data_decoded = base64.b64decode(encrypted_data)
+        decrypted_data = secret_box.decrypt(encrypted_data_decoded, nonce)
+        decrypted_datas.append(decrypted_data)
+    return decrypted_datas
+
+
+# @api_view(["POST"])
+# def store_files_temp(req, *args, **kwargs):
+#     file_name_encoded = req.data.get('file_name')
+#     file_encoded = req.data.get('file')
+#     nonce_encoded = req.data.get('nonce')
+
+#     secret_key = decryption_key.encode('utf-8')
+#     secret_box = SecretBox(secret_key)
+
+#     file_name_encrypted = base64.b64decode(file_name_encoded)
+#     decrypted_file_name = secret_box.decrypt(file_name_encrypted, nonce).decode('utf-8')
+#     file_encrypted = base64.b64decode(file_encoded)
+#     nonce = base64.b64decode(nonce_encoded)
+
+#     decrypted_file = secret_box.decrypt(file_encrypted, nonce)
+
+#     #save file locally
+#     fs = FileSystemStorage()
+#     file_name = fs.save(decrypted_file_name, decrypted_file)
+#     print(file_name)
+#     return Response({'detail':'file saved!'}, status=200)
+
+upload_sessions = {}
 
 @api_view(["POST"])
 def upload_file(req, *args, **kwargs):
     file_name_encoded = req.data.get('file_name')
+    zip_name_encoded = req.data.get('zip_name')
     file_description_encoded = req.data.get('file_desc')
     file_encoded = req.data.get('file')
-    file_type_encoded = req.data.get('file_type')
-    file_original_name_encoded = req.data.get('original_name')
     nonce_encoded = req.data.get('nonce')
+    complete_status = req.data.get('complete_status')
 
-    secret_key = decryption_key.encode('utf-8')
-    secret_box = SecretBox(secret_key)
+    decrypted_datas = handle_decryption(
+        file_name_encoded,
+        zip_name_encoded,
+        file_description_encoded,
+        file_encoded,
+        nonce=base64.b64decode(nonce_encoded)
+        )
 
+    decrypted_file_name = decrypted_datas[0].decode('utf-8')
+    decrypted_zip_name = decrypted_datas[1].decode('utf-8')
+    decrypted_file_desc = decrypted_datas[2].decode('utf-8')
+    decrypted_file_chunk = decrypted_datas[3]
 
-    #decode all the data
-    file_name_encrypted = base64.b64decode(file_name_encoded)
-    file_desc_encrypted = base64.b64decode(file_description_encoded)
-    file_type_encrypted = base64.b64decode(file_type_encoded)
-    file_original_name_encrypted = base64.b64decode(file_original_name_encoded)
-    file_encrypted = base64.b64decode(file_encoded)
-    nonce = base64.b64decode(nonce_encoded)
-
-    #decrypt all the data
-    decrypted_file_name = secret_box.decrypt(file_name_encrypted, nonce).decode('utf-8')
-    decrypted_file_desc = secret_box.decrypt(file_desc_encrypted, nonce).decode('utf-8')
-    decrypted_file_type = secret_box.decrypt(file_type_encrypted, nonce).decode('utf-8')
-    decrypted_file_orginal_name = secret_box.decrypt(file_original_name_encrypted, nonce).decode('utf-8')
-    decrypted_file = secret_box.decrypt(file_encrypted, nonce)
-
-
-    # Set the expiration time for the uploaded file to 7 days from now
-    expiration_time = datetime.datetime.now() + datetime.timedelta(days=7)
+    # Set the expiration time for the uploaded file to 20 days from now
+    expiration_time = datetime.datetime.now() + datetime.timedelta(days=20)
     expiration_time_str = expiration_time.strftime('%Y-%m-%d %H:%M:%S')
 
     #get the file extension
-    extension = extract_file_extension(decrypted_file_orginal_name)
+    [file_name, extension] = extract_file_extension(decrypted_file_name)
 
-    path = f'/files/uploads/{decrypted_file_name}.{extension}'
+    upload_path = f'/files/uploads/{decrypted_zip_name}.zip/{file_name}.{extension}'
+    download_path = f'/files/uploads/{decrypted_zip_name}.zip'
 
-    #testing dropbox api
+    #set a default id for the file on db
+    id = 0
+
+    #uploading file using dropbox api
+    # check if upload session already exists for this file
+    file_key = (decrypted_zip_name, decrypted_file_name)
+    if file_key not in upload_sessions:
+        # create a new upload session
+        session_start_result = dbx.files_upload_session_start(
+            b"",
+            close=False,
+        )
+        session_id = session_start_result.session_id
+        offset = 0
+        upload_sessions[file_key] = (session_id, offset)
+    else:
+        # retrieve session ID, offset and zip_name from dictionary
+        session_id, offset = upload_sessions[file_key]
+
+    # upload file chunk
     try:
-        dbx.files_upload(decrypted_file, path=path, autorename=True)
-    except dropbox.files.UploadError():
-        return Response({'detail':'Error uploading file!'}, status=500)
+        if complete_status == "incomplete":
+            result = dbx.files_upload_session_append_v2(
+                    decrypted_file_chunk, dropbox.files.UploadSessionCursor(session_id, offset)
+                )
+            # update offset in dictionary
+            upload_sessions[file_key] = (session_id, offset + len(decrypted_file_chunk))
+        elif complete_status == "complete":
+            result = dbx.files_upload_session_finish(
+                    decrypted_file_chunk, dropbox.files.UploadSessionCursor(session_id, offset), dropbox.files.CommitInfo(upload_path, autorename=True)
+                )
+            # remove upload session from dictionary when complete
+            del upload_sessions[file_key]
 
-    shared_link_obj = dbx.sharing_create_shared_link(path=path)
+            # try:
+            #     dbx.files_upload(decrypted_file, path=upload_path, autorename=True)
+            # except dropbox.files.UploadError():
+            #     return Response({'detail':'Error uploading file!'}, status=500)
 
-    url = shared_link_obj.url
-    download_url = make_url_downloadable(url)
+            shared_link_obj = dbx.sharing_create_shared_link(path=download_path)
 
-    id = populate_database(
-        file_name=decrypted_file_name,
-        file_description=decrypted_file_desc,
-        file=download_url,
-        expires_on=expiration_time_str)
+            url = shared_link_obj.url
+            download_url = downloadable_url(url)
 
-    return Response({'detail':'uploaded', 'id':id}, status=200)
+            id = update_database(
+                file_name=decrypted_zip_name,
+                file_description=decrypted_file_desc,
+                file=download_url,
+                expires_on=expiration_time_str)
+
+        return Response({'detail':'uploaded', 'id':id}, status=200)
+    except:
+        return Response({'detail':'upload error!'}, status=500)
 
 
 @api_view(["GET"])
@@ -135,13 +226,11 @@ def get_download_url(req, *args, **kwargs):
             return Response({'detail':'url expired!'}, status=403)
         query_set = File.objects.filter(id=int(id))
         download_url = query_set[0].file
-        secret_key = encryption_key.encode('utf-8')
-        secret_box = SecretBox(secret_key)
-        encrypted = secret_box.encrypt(download_url.encode('utf-8'))
+        [encrypted_content, nonce] = handle_encryption(download_url)
         return Response(
             {
-            'download_url':base64.b64encode(encrypted.ciphertext),
-            'nonce':base64.b64encode(encrypted.nonce),
+            'download_url':base64.b64encode(encrypted_content),
+            'nonce':base64.b64encode(nonce),
             },
             status=200)
     except:
@@ -153,15 +242,12 @@ def shorten_url(req, *args, **kwargs):
     encrypted_url = req.data.get('encryptedURL')
     nonce = req.data.get('nonce')
 
-    secret_key = decryption_key.encode('utf-8')
-    secret_box = SecretBox(secret_key)
+    decrypted_datas = handle_decryption(
+        encrypted_url,
+        nonce=base64.b64decode(nonce)
+    )
 
-    #decode the data
-    decoded_encrypted_url = base64.b64decode(encrypted_url)
-    decoded_nonce = base64.b64decode(nonce)
-
-    #decrypt the data
-    decrypted_url = secret_box.decrypt(decoded_encrypted_url, decoded_nonce).decode()
+    decrypted_url = decrypted_datas[0].decode('utf-8')
 
     #save the url as long url in db
     qs = ShortURL.objects.filter(long_url=decrypted_url) #checking wether the url already exists
@@ -172,10 +258,22 @@ def shorten_url(req, *args, **kwargs):
         alphabet = os.environ.get('SHORT_UUID_ALPHABET')
         su = shortuuid.ShortUUID(alphabet=alphabet) # Create a ShortUUID object with the custom alphabet
         short_id = su.random(length=8) # Generate a short ID of exactly 8 characters in length
+        short_url_base_address = os.environ.get('SHORT_URL_BASE_ADDRESS')
         model_arguments = {
             "id": short_id,
             "long_url":decrypted_url,
+            "short_url": f'{short_url_base_address}/{short_id}/'
         }
         instance = ShortURL.objects.create(**model_arguments)
-    short_id = instance.id
-    return Response({'hashed_id':short_id})
+    short_url = instance.short_url
+
+    #encrypt the url before sending as a response
+    [encrypted_content, nonce] = handle_encryption(short_url)
+
+    return Response(
+        {
+            'enc_short_url':base64.b64encode(encrypted_content),
+            'nonce':base64.b64encode(nonce)
+         },
+         status=200
+         )

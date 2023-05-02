@@ -9,7 +9,7 @@ class FileAdminView(admin.ModelAdmin):
 
 class ShortURLAdminView(admin.ModelAdmin):
     model = ShortURL
-    list_display = ('id', 'long_url', 'visited', 'created')
+    list_display = ('id', 'long_url', 'short_url', 'visited', 'created')
 
 
 admin.site.register(File, FileAdminView)
