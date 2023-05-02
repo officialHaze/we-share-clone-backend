@@ -106,28 +106,6 @@ def handle_decryption(*args, nonce):
     return decrypted_datas
 
 
-# @api_view(["POST"])
-# def store_files_temp(req, *args, **kwargs):
-#     file_name_encoded = req.data.get('file_name')
-#     file_encoded = req.data.get('file')
-#     nonce_encoded = req.data.get('nonce')
-
-#     secret_key = decryption_key.encode('utf-8')
-#     secret_box = SecretBox(secret_key)
-
-#     file_name_encrypted = base64.b64decode(file_name_encoded)
-#     decrypted_file_name = secret_box.decrypt(file_name_encrypted, nonce).decode('utf-8')
-#     file_encrypted = base64.b64decode(file_encoded)
-#     nonce = base64.b64decode(nonce_encoded)
-
-#     decrypted_file = secret_box.decrypt(file_encrypted, nonce)
-
-#     #save file locally
-#     fs = FileSystemStorage()
-#     file_name = fs.save(decrypted_file_name, decrypted_file)
-#     print(file_name)
-#     return Response({'detail':'file saved!'}, status=200)
-
 upload_sessions = {}
 
 @api_view(["POST"])
@@ -137,7 +115,7 @@ def upload_file(req, *args, **kwargs):
     file_description_encoded = req.data.get('file_desc')
     file_encoded = req.data.get('file')
     nonce_encoded = req.data.get('nonce')
-    complete_status = req.data.get('complete_status')
+    upload_status = req.data.get('complete_status')
 
     decrypted_datas = handle_decryption(
         file_name_encoded,
@@ -156,16 +134,16 @@ def upload_file(req, *args, **kwargs):
     expiration_time = datetime.datetime.now() + datetime.timedelta(days=20)
     expiration_time_str = expiration_time.strftime('%Y-%m-%d %H:%M:%S')
 
-    #get the file extension
+    #get the file extension and the filename seperately
     [file_name, extension] = extract_file_extension(decrypted_file_name)
 
     upload_path = f'/files/uploads/{decrypted_zip_name}.zip/{file_name}.{extension}'
     download_path = f'/files/uploads/{decrypted_zip_name}.zip'
 
-    #set a default id for the file on db
+    #set a default id to be sent as a response
     id = 0
 
-    #uploading file using dropbox api
+    #upload file using dropbox api
     # check if upload session already exists for this file
     file_key = (decrypted_zip_name, decrypted_file_name)
     if file_key not in upload_sessions:
@@ -178,28 +156,23 @@ def upload_file(req, *args, **kwargs):
         offset = 0
         upload_sessions[file_key] = (session_id, offset)
     else:
-        # retrieve session ID, offset and zip_name from dictionary
+        # retrieve session ID and offset from dictionary
         session_id, offset = upload_sessions[file_key]
 
     # upload file chunk
     try:
-        if complete_status == "incomplete":
+        if upload_status == "incomplete":
             result = dbx.files_upload_session_append_v2(
                     decrypted_file_chunk, dropbox.files.UploadSessionCursor(session_id, offset)
                 )
             # update offset in dictionary
             upload_sessions[file_key] = (session_id, offset + len(decrypted_file_chunk))
-        elif complete_status == "complete":
+        elif upload_status == "complete":
             result = dbx.files_upload_session_finish(
                     decrypted_file_chunk, dropbox.files.UploadSessionCursor(session_id, offset), dropbox.files.CommitInfo(upload_path, autorename=True)
                 )
             # remove upload session from dictionary when complete
             del upload_sessions[file_key]
-
-            # try:
-            #     dbx.files_upload(decrypted_file, path=upload_path, autorename=True)
-            # except dropbox.files.UploadError():
-            #     return Response({'detail':'Error uploading file!'}, status=500)
 
             shared_link_obj = dbx.sharing_create_shared_link(path=download_path)
 
