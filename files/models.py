@@ -4,7 +4,7 @@ from django.utils.translation import gettext_lazy as _
 
 class File(models.Model):
     file_name = models.CharField(_('Name'), max_length=100)
-    file_description = models.TextField(_('Description'), max_length=300)
+    file_description = models.TextField(_('Description'), max_length=300, null=True)
     file = models.CharField(_('Download URL'), max_length=500)
     uploaded_on = models.DateTimeField(_('Uploaded on'), auto_now_add=True)
     expires_on = models.CharField(_('Expires on'), max_length=100)

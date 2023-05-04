@@ -1,6 +1,7 @@
 from django.shortcuts import redirect
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework import permissions
+from rest_framework.response import Response
 from files.models import ShortURL
 from dotenv import load_dotenv
 import os
@@ -31,3 +32,8 @@ def redirect_to_long_url(req, *args, **kwargs):
     except:
         redirect_url = os.environ.get('BASE_URL')
         return redirect(f'{redirect_url}/404')
+
+
+@api_view(["GET"])
+def connection_stream(req, *args, **kwargs):
+    return Response({'detail':'connected!'}, status=200)

@@ -162,17 +162,20 @@ def upload_file(req, *args, **kwargs):
     # upload file chunk
     try:
         if upload_status == "incomplete":
+            # print(offset)
             result = dbx.files_upload_session_append_v2(
                     decrypted_file_chunk, dropbox.files.UploadSessionCursor(session_id, offset)
                 )
             # update offset in dictionary
             upload_sessions[file_key] = (session_id, offset + len(decrypted_file_chunk))
         elif upload_status == "complete":
+            # print(offset)
             result = dbx.files_upload_session_finish(
-                    decrypted_file_chunk, dropbox.files.UploadSessionCursor(session_id, offset), dropbox.files.CommitInfo(upload_path, autorename=True)
+                    decrypted_file_chunk, dropbox.files.UploadSessionCursor(session_id, offset), dropbox.files.CommitInfo(upload_path)
                 )
             # remove upload session from dictionary when complete
             del upload_sessions[file_key]
+            print('upload_session deleted')
 
             shared_link_obj = dbx.sharing_create_shared_link(path=download_path)
 
@@ -187,6 +190,9 @@ def upload_file(req, *args, **kwargs):
 
         return Response({'detail':'uploaded', 'id':id}, status=200)
     except:
+        # remove upload session from dictionary if any upload error occurs
+        del upload_sessions[file_key]
+        print('upload_session deleted')
         return Response({'detail':'upload error!'}, status=500)
 
 
