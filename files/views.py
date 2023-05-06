@@ -126,6 +126,7 @@ def upload_file(req, *args, **kwargs):
     #upload file using dropbox api
     # check if upload session already exists for this file
     file_key = (decrypted_zip_name, decrypted_file_name)
+    print(file_key)
     if file_key not in upload_sessions:
         # create a new upload session
         session_start_result = dbx.files_upload_session_start(
