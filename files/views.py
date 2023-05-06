@@ -142,14 +142,14 @@ def upload_file(req, *args, **kwargs):
     # upload file chunk
     try:
         if upload_status == "incomplete":
-            # print(offset)
+            print(offset)
             result = dbx.files_upload_session_append_v2(
                     decrypted_file_chunk, dropbox.files.UploadSessionCursor(session_id, offset)
                 )
             # update offset in dictionary
             upload_sessions[file_key] = (session_id, offset + len(decrypted_file_chunk))
         elif upload_status == "complete":
-            # print(offset)
+            print(offset)
             result = dbx.files_upload_session_finish(
                     decrypted_file_chunk, dropbox.files.UploadSessionCursor(session_id, offset), dropbox.files.CommitInfo(upload_path)
                 )
@@ -172,7 +172,7 @@ def upload_file(req, *args, **kwargs):
     except:
         # remove upload session from dictionary if any upload error occurs
         del upload_sessions[file_key]
-        print('upload_session deleted')
+        print('upload_session deleted due to error')
         return Response({'detail':'upload error!'}, status=500)
 
 
