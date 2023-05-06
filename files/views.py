@@ -1,5 +1,4 @@
 from rest_framework.decorators import api_view
-from django.core.files.storage import FileSystemStorage
 from rest_framework.response import Response
 from .models import File, ShortURL
 from dotenv import load_dotenv
@@ -18,7 +17,7 @@ app_key = os.environ.get('DROPBOX_KEY')
 app_secret = os.environ.get('DROPBOX_SECRET')
 refresh_token = os.environ.get('DROPBOX_REFRESH_TOKEN')
 
-expiration_time_oauth = datetime.datetime.now() + datetime.timedelta(days=29)
+expiration_time_oauth = datetime.datetime.now() + datetime.timedelta(days=100)
 expiration_time_str_oauth = expiration_time_oauth.strftime('%Y-%m-%d %H:%M:%S')
 dbx = dropbox.Dropbox(
     app_key=app_key,
@@ -29,25 +28,6 @@ dbx = dropbox.Dropbox(
 
 encryption_key = os.environ.get('ENCRYPTION_KEY')
 decryption_key = os.environ.get('DECRYPTION_KEY')
-
-
-# def binary_data(file, filename):
-#     fs = FileSystemStorage()
-#     filename = fs.save(filename, file)
-#     file_path = fs.path(filename)
-#     with open(file_path, 'rb') as f:
-#         file_binary_data = f.read()
-#     return [file_binary_data, filename]
-
-
-# def delete_local_file(filename):
-#     fs = FileSystemStorage()
-#     file_path = fs.path(filename)
-#     try:
-#         os.remove(file_path)
-#         return 'File deleted'
-#     except:
-#         return 'Error while deleting the file'
 
 
 def update_database(*args, **kwargs):
