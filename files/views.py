@@ -94,6 +94,7 @@ def upload_file(req, *args, **kwargs):
     zip_name_encoded = req.data.get('zip_name')
     file_description_encoded = req.data.get('file_desc')
     file_encoded = req.data.get('file')
+    offset_val_encoded = req.data.get('offset_val')
     nonce_encoded = req.data.get('nonce')
     upload_status = req.data.get('complete_status')
 
@@ -101,6 +102,7 @@ def upload_file(req, *args, **kwargs):
         file_name_encoded,
         zip_name_encoded,
         file_description_encoded,
+        offset_val_encoded,
         file_encoded,
         nonce=base64.b64decode(nonce_encoded)
         )
@@ -108,7 +110,10 @@ def upload_file(req, *args, **kwargs):
     decrypted_file_name = decrypted_datas[0].decode('utf-8')
     decrypted_zip_name = decrypted_datas[1].decode('utf-8')
     decrypted_file_desc = decrypted_datas[2].decode('utf-8')
-    decrypted_file_chunk = decrypted_datas[3]
+    decrypted_offset_val = decrypted_datas[3].decode('utf-8')
+    decrypted_file_chunk = decrypted_datas[4]
+
+    offset_val = int(decrypted_offset_val)
 
     # Set the expiration time for the uploaded file to 20 days from now
     expiration_time = datetime.datetime.now() + datetime.timedelta(days=20)
@@ -134,8 +139,7 @@ def upload_file(req, *args, **kwargs):
             close=False,
         )
         session_id = session_start_result.session_id
-        offset = 0
-        upload_sessions[file_key] = (session_id, offset)
+        upload_sessions[file_key] = (session_id, offset_val)
     else:
         # retrieve session ID and offset from dictionary
         session_id, offset = upload_sessions[file_key]
@@ -148,7 +152,7 @@ def upload_file(req, *args, **kwargs):
                     decrypted_file_chunk, dropbox.files.UploadSessionCursor(session_id, offset)
                 )
             # update offset in dictionary
-            upload_sessions[file_key] = (session_id, offset + len(decrypted_file_chunk))
+            upload_sessions[file_key] = (session_id, offset_val)
         elif upload_status == "complete":
             print(offset)
             result = dbx.files_upload_session_finish(
