@@ -138,8 +138,9 @@ def upload_file(req, *args, **kwargs):
             b"",
             close=False,
         )
+        offset = offset_val
         session_id = session_start_result.session_id
-        upload_sessions[file_key] = (session_id, offset_val)
+        upload_sessions[file_key] = (session_id, offset)
     else:
         # retrieve session ID and offset from dictionary
         session_id, offset = upload_sessions[file_key]
