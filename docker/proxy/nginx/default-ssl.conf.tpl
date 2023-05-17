@@ -1,10 +1,3 @@
-upstream backend {
-    server ${APP_HOST};
-    server ${APP_HOST};
-
-    sticky cookie srv_id expires=1h domain=${DOMAIN} path=/;
-}
-
 server {
     listen 80;
     server_name ${DOMAIN} www.${DOMAIN};
@@ -36,7 +29,9 @@ server {
     }
 
     location / {
-        proxy_pass                  http://backend;
+        proxy_set_header            X-Worker-Pid $pid;  # Add this line to set the worker PID as a header
+
+        uwsgi_pass                  ${APP_HOST}:${APP_PORT};
         include                     /etc/nginx/uwsgi_params;
         client_max_body_size        50M;
     }
