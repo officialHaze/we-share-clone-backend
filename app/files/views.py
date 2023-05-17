@@ -87,6 +87,7 @@ upload_sessions = {}
 
 @api_view(["POST"])
 def upload_file(req, *args, **kwargs):
+    print(req)
     file_name_encoded = req.data.get('file_name')
     zip_name_encoded = req.data.get('zip_name')
     file_description_encoded = req.data.get('file_desc')
