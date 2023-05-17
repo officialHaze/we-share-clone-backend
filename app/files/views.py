@@ -133,7 +133,7 @@ def upload_file(req, *args, **kwargs):
         session_start_result = dbx.files_upload_session_start(
             b"",
         )
-        offset = offset_val
+        offset = 0
         session_id = session_start_result.session_id
         upload_sessions[file_key] = (session_id, offset)
     else:
@@ -148,7 +148,7 @@ def upload_file(req, *args, **kwargs):
                     decrypted_file_chunk, dropbox.files.UploadSessionCursor(session_id, offset)
                 )
             # update offset in dictionary
-            upload_sessions[file_key] = (session_id, offset_val)
+            upload_sessions[file_key] = (session_id, offset + len(decrypted_file_chunk))
         elif upload_status == "complete":
             print(offset)
             result = dbx.files_upload_session_finish(
