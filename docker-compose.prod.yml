@@ -24,6 +24,7 @@ services:
       - DB_USER=${DB_USER}
       - DB_PASS=${DB_PASS}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS}
+      - DOMAIN=${DOMAIN}
     depends_on:
       - db
 
