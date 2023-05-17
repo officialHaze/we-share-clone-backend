@@ -87,7 +87,7 @@ upload_sessions = {}
 
 @api_view(["POST"])
 def upload_file(req, *args, **kwargs):
-    worker_pid = req.META.get('HTTP_X_WORKER_PID')
+    worker_pid = os.getpid()
     print(worker_pid)
 
     file_name_encoded = req.data.get('file_name')
