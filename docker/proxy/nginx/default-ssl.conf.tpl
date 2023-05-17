@@ -1,3 +1,9 @@
+upstream backend {
+    ip_hash;
+
+    server ${APP_HOST}:${APP_PORT} max_fails=3 fail_timeout=10s;
+}
+
 server {
     listen 80;
     server_name ${DOMAIN} www.${DOMAIN};
@@ -29,9 +35,6 @@ server {
     }
 
     location / {
-        # Enable session stickiness using cookies with HTTP Only flag
-        sticky-cookie SRV_ID expires=1h domain=${DOMAIN} https-only;
-
         uwsgi_pass                  ${APP_HOST}:${APP_PORT};
         include                     /etc/nginx/uwsgi_params;
         client_max_body_size        50M;
