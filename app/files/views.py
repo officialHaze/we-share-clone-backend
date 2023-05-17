@@ -153,7 +153,7 @@ def upload_file(req, *args, **kwargs):
                         decrypted_file_chunk, dropbox.files.UploadSessionCursor(session_id, offset)
                     )
                 # update offset in dictionary
-                upload_sessions[file_key] = (session_id, offset + len(decrypted_file_chunk))
+                upload_sessions[file_key] = (session_id, offset + len(decrypted_file_chunk), pid)
             elif upload_status == "complete":
                 print(offset)
                 result = dbx.files_upload_session_finish(
@@ -174,14 +174,14 @@ def upload_file(req, *args, **kwargs):
                     file=download_url,
                     expires_on=expiration_time_str)
 
-            return Response({'detail':'uploaded', 'id':id, 'next':True}, status=200)
+            return Response({'detail':'uploaded', 'id':id, 'next':'true'}, status=200)
         except:
             # remove upload session from dictionary if any upload error occurs
             del upload_sessions[file_key]
             print('upload_session deleted due to error')
             return Response({'detail':'upload error!'}, status=500)
     else:
-       return Response({'detail':'not uploaded', 'id':0, 'next':False}, status=200) 
+       return Response({'detail':'not uploaded', 'id':0, 'next':'false'}, status=200) 
 
 
 @api_view(["GET"])
