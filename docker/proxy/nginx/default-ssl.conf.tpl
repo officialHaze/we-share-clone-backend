@@ -1,5 +1,6 @@
 upstream backend {
     server ${APP_HOST};
+    server ${APP_HOST};
 
     sticky cookie srv_id expires=1h domain=${DOMAIN} path=/;
 }
