@@ -15,6 +15,8 @@ DEBUG = bool(int(os.environ.get('DEBUG', 0)))
 
 ALLOWED_HOSTS = [] if DEBUG is True else os.environ.get('ALLOWED_HOSTS').rsplit(',')
 
+DATA_UPLOAD_MAX_MEMORY_SIZE = 100000000  # 100 MB
+
 # Application definition
 
 INSTALLED_APPS = [
