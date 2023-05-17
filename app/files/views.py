@@ -87,7 +87,6 @@ upload_sessions = {}
 
 @api_view(["POST"])
 def upload_file(req, *args, **kwargs):
-    print(req)
     file_name_encoded = req.data.get('file_name')
     zip_name_encoded = req.data.get('zip_name')
     file_description_encoded = req.data.get('file_desc')
@@ -129,7 +128,6 @@ def upload_file(req, *args, **kwargs):
     #upload file using dropbox api
     # check if upload session already exists for this file
     file_key = (decrypted_zip_name, decrypted_file_name)
-    print(upload_sessions)
     if file_key not in upload_sessions:
         # create a new upload session
         session_start_result = dbx.files_upload_session_start(
