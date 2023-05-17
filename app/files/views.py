@@ -137,47 +137,51 @@ def upload_file(req, *args, **kwargs):
             b"",
         )
         offset = 0
+        pid = worker_pid
         session_id = session_start_result.session_id
-        upload_sessions[file_key] = (session_id, offset)
+        upload_sessions[file_key] = (session_id, offset, pid)
     else:
         # retrieve session ID and offset from dictionary
-        session_id, offset = upload_sessions[file_key]
+        session_id, offset, pid = upload_sessions[file_key]
 
     # upload file chunk
-    try:
-        if upload_status == "incomplete":
-            print(offset)
-            result = dbx.files_upload_session_append_v2(
-                    decrypted_file_chunk, dropbox.files.UploadSessionCursor(session_id, offset)
-                )
-            # update offset in dictionary
-            upload_sessions[file_key] = (session_id, offset + len(decrypted_file_chunk))
-        elif upload_status == "complete":
-            print(offset)
-            result = dbx.files_upload_session_finish(
-                    decrypted_file_chunk, dropbox.files.UploadSessionCursor(session_id, offset), dropbox.files.CommitInfo(upload_path)
-                )
-            # remove upload session from dictionary when complete
+    if pid == worker_pid:
+        try:
+            if upload_status == "incomplete":
+                print(offset)
+                result = dbx.files_upload_session_append_v2(
+                        decrypted_file_chunk, dropbox.files.UploadSessionCursor(session_id, offset)
+                    )
+                # update offset in dictionary
+                upload_sessions[file_key] = (session_id, offset + len(decrypted_file_chunk))
+            elif upload_status == "complete":
+                print(offset)
+                result = dbx.files_upload_session_finish(
+                        decrypted_file_chunk, dropbox.files.UploadSessionCursor(session_id, offset), dropbox.files.CommitInfo(upload_path)
+                    )
+                # remove upload session from dictionary when complete
+                del upload_sessions[file_key]
+                print('upload_session deleted')
+
+                shared_link_obj = dbx.sharing_create_shared_link(path=download_path)
+
+                url = shared_link_obj.url
+                download_url = downloadable_url(url)
+
+                id = update_database(
+                    file_name=decrypted_zip_name,
+                    file_description=decrypted_file_desc,
+                    file=download_url,
+                    expires_on=expiration_time_str)
+
+            return Response({'detail':'uploaded', 'id':id, 'next':True}, status=200)
+        except:
+            # remove upload session from dictionary if any upload error occurs
             del upload_sessions[file_key]
-            print('upload_session deleted')
-
-            shared_link_obj = dbx.sharing_create_shared_link(path=download_path)
-
-            url = shared_link_obj.url
-            download_url = downloadable_url(url)
-
-            id = update_database(
-                file_name=decrypted_zip_name,
-                file_description=decrypted_file_desc,
-                file=download_url,
-                expires_on=expiration_time_str)
-
-        return Response({'detail':'uploaded', 'id':id}, status=200)
-    except:
-        # remove upload session from dictionary if any upload error occurs
-        del upload_sessions[file_key]
-        print('upload_session deleted due to error')
-        return Response({'detail':'upload error!'}, status=500)
+            print('upload_session deleted due to error')
+            return Response({'detail':'upload error!'}, status=500)
+    else:
+       return Response({'detail':'not uploaded', 'id':0, 'next':False}, status=200) 
 
 
 @api_view(["GET"])
