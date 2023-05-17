@@ -1,7 +1,8 @@
 upstream backend {
-    ip_hash;
+    server backend1.${DOMAIN};
+    server backend2.${DOMAIN};
 
-    server ${APP_HOST}:${APP_PORT} max_fails=3 fail_timeout=10s;
+    sticky cookie srv_id expires=1h domain=${DOMAIN} path=/;
 }
 
 server {
@@ -35,7 +36,7 @@ server {
     }
 
     location / {
-        uwsgi_pass                  ${APP_HOST}:${APP_PORT};
+        proxy_pass                  http://backend;
         include                     /etc/nginx/uwsgi_params;
         client_max_body_size        50M;
     }
