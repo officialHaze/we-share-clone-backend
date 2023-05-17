@@ -1,5 +1,6 @@
 upstream backend {
-    server ${DOMAIN};
+    server backend1.${DOMAIN};
+    server backend2.${DOMAIN};
 
     sticky cookie srv_id expires=1h domain=${DOMAIN} path=/;
 }
