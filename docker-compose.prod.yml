@@ -6,7 +6,7 @@ services:
       context: .
     restart: always
     volumes:
-      - static-data:/vol/web/static
+      - static-data:/vol/web
     environment:
       - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
       - ADMIN_KEY=${ADMIN_KEY}
