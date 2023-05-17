@@ -24,13 +24,13 @@ server {
 
     add_header Strict-Transport-Security "max_age=31536000; includeSubDomains" always;
 
+    add_header X-Worker-Pid $pid always;
+
     location /static {
         alias /vol/static;
     }
 
     location / {
-        uwsgi_param                 X-Worker-Pid $pid;  # Add this line to set the worker PID as a header
-
         uwsgi_pass                  ${APP_HOST}:${APP_PORT};
         include                     /etc/nginx/uwsgi_params;
         client_max_body_size        50M;
