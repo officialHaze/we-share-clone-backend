@@ -29,7 +29,7 @@ server {
     }
 
     location / {
-        proxy_set_header            X-Worker-Pid $pid;  # Add this line to set the worker PID as a header
+        uwsgi_params                X-Worker-Pid $pid;  # Add this line to set the worker PID as a header
 
         uwsgi_pass                  ${APP_HOST}:${APP_PORT};
         include                     /etc/nginx/uwsgi_params;
