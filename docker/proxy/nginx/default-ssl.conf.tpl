@@ -1,6 +1,5 @@
 upstream backend {
-    server backend1.${APP_HOST}:${APP_PORT};
-    server backend2.${APP_HOST}:${APP_PORT};
+    server https://${DOMAIN};
 
     sticky cookie srv_id expires=1h domain=${DOMAIN} path=/;
 }
