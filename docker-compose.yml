@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+  app:
+    build:
+      context: .
+    command: >
+      sh -c "python manage.py wait_for_db &&
+             python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
+    ports:
+      - 8000:8000
+    volumes:
+      - ./app:/app
+    environment:
+      - DEBUG=1
+      - ADMIN_KEY=elOYetitOavcEsaNSi8trc_BEOrBO9mLAIaaamOemetNelS_nO_InInHttNmhs
+      - BASE_URL=http://localhost:3000
+      - DROPBOX_ACCESS_TOKEN=sl.BdXXFZGzkDiC-AEs3pmZlWXsYVI1k7w6t3h6CN0Fjt61tE5gZIvMS2szRR4awN8qPyEgytS6-a5RpIas9bWxQGSEqE-K_ZVHVqgnX2zXq6CZscaaUy1gW3Rwlton2GQ9DhslPgoUyp0
+      - DROPBOX_KEY=4p3sboorvkd3m6b
+      - DROPBOX_SECRET=cvc282faa38xnht
+      - DROPBOX_REFRESH_TOKEN=PJutMbdpf6MAAAAAAAAAAax7Bq29EvjuwLM_ArruaDvACDik5nm6U2n9TEmAbQ_I
+      - DECRYPTION_KEY=DAYOEAO_erZrIOrDYnOrNfAE7DZEfeZN
+      - ENCRYPTION_KEY=rEOYOMAZEItZrirIIRfOAOeY_ANMZIZR
+      - SHORT_UUID_ALPHABET=23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz
+      - SHORT_URL_BASE_ADDRESS=http://localhost:8000
+      - DB_HOST=db
+      - DB_NAME=moinaksDB
+      - DB_USER=moinak
+      - DB_PASS=changeme
+    depends_on:
+      - db
+
+  db:
+    image: postgres:13-alpine
+    environment:
+      - POSTGRES_DB=moinaksDB
+      - POSTGRES_USER=moinak
+      - POSTGRES_PASSWORD=changeme

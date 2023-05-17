@@ -1,0 +1,74 @@
+version: "3.9"
+
+services:
+  app:
+    build:
+      context: .
+    restart: always
+    volumes:
+      - static-data:/vol/web/static
+    environment:
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
+      - ADMIN_KEY=${ADMIN_KEY}
+      - BASE_URL=${BASE_URL}
+      - DROPBOX_ACCESS_TOKEN=${DROPBOX_ACCESS_TOKEN}
+      - DROPBOX_KEY=${DROPBOX_KEY}
+      - DROPBOX_SECRET=${DROPBOX_SECRET}
+      - DROPBOX_REFRESH_TOKEN=${DROPBOX_REFRESH_TOKEN}
+      - DECRYPTION_KEY=${DECRYPTION_KEY}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - SHORT_UUID_ALPHABET=${SHORT_UUID_ALPHABET}
+      - SHORT_URL_BASE_ADDRESS=${SHORT_URL_BASE_ADDRESS}
+      - DB_HOST=db
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASS=${DB_PASS}
+    depends_on:
+      - db
+
+  db:
+    image: postgres:13-alpine
+    restart: always
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASS}
+
+  proxy:
+    build:
+      context: ./docker/proxy
+    restart: always
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - static-data:/vol/static
+      - certbot-web:/vol/www
+      - proxy-dhparams:/vol/proxy
+      - certbot-certs:/etc/letsencrypt
+    environment:
+      - DOMAIN=${DOMAIN}
+    depends_on:
+      - app
+
+  certbot:
+    build:
+      context: ./docker/certbot
+    command: echo "Skipping..."
+    environment:
+      - DOMAIN=${DOMAIN}
+      - EMAIL=${ACME_DEFAULT_EMAIL}
+    volumes:
+      - certbot-web:/vol/www
+      - certbot-certs:/etc/letsencrypt/
+    depends_on:
+      - proxy
+
+volumes:
+  static-data:
+  postgres-data:
+  certbot-web:
+  proxy-dhparams:
+  certbot-certs:
