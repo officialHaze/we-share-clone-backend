@@ -1,5 +1,5 @@
 upstream backend {
-    server ${APP}:${PORT};
+    server ${DOMAIN};
 
     sticky cookie srv_id expires=1h domain=${DOMAIN} path=/;
 }
