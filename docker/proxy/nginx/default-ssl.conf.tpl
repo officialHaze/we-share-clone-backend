@@ -29,6 +29,9 @@ server {
     }
 
     location / {
+        # Enable session stickiness using cookies with HTTP Only flag
+        sticky-cookie SRV_ID expires=1h domain=${DOMAIN} http-only;
+
         uwsgi_pass                  ${APP_HOST}:${APP_PORT};
         include                     /etc/nginx/uwsgi_params;
         client_max_body_size        50M;
