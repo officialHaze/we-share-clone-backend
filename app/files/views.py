@@ -141,7 +141,7 @@ def upload_file(req, *args, **kwargs):
     decrypted_file_name = decrypted_datas[0].decode('utf-8')
     decrypted_zip_name = decrypted_datas[1].decode('utf-8')
     decrypted_file_desc = decrypted_datas[2].decode('utf-8')
-    decrypted_file_chunk = decrypted_datas[4]
+    decrypted_file_chunk = decrypted_datas[3]
 
 
     # Set the expiration time for the uploaded file to 20 days from now
@@ -250,7 +250,7 @@ def shorten_url(req, *args, **kwargs):
         #if there is no qs, create an instance
         alphabet = os.environ.get('SHORT_UUID_ALPHABET')
         su = shortuuid.ShortUUID(alphabet=alphabet) # Create a ShortUUID object with the custom alphabet
-        short_id = su.random(length=8) # Generate a short ID of exactly 8 characters in length
+        short_id = su.random(length=4) # Generate a short ID of exactly 8 characters in length
         short_url_base_address = os.environ.get('SHORT_URL_BASE_ADDRESS')
         model_arguments = {
             "id": short_id,
