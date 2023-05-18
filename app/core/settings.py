@@ -69,7 +69,6 @@ CORS_ALLOW_HEADERS = [
     "x-requested-with",
     "admin-token",
     "admin_token"
-    "x-worker-pid"
 ]
 
 ROOT_URLCONF = 'core.urls'

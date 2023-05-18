@@ -7,14 +7,10 @@ import shortuuid
 import base64
 import datetime
 import os
-import io
 import dropbox
 import dropbox.files
 
-#todo
-'''
-save the session id and offset in db
-'''
+
 
 app_key = os.environ.get('DROPBOX_KEY')
 app_secret = os.environ.get('DROPBOX_SECRET')
@@ -128,14 +124,10 @@ def delete_upload_session(zip_name):
 
 @api_view(["POST"])
 def upload_file(req, *args, **kwargs):
-    worker_pid = os.getpid()
-    print(worker_pid)
-
     file_name_encoded = req.data.get('file_name')
     zip_name_encoded = req.data.get('zip_name')
     file_description_encoded = req.data.get('file_desc')
     file_encoded = req.data.get('file')
-    offset_val_encoded = req.data.get('offset_val')
     nonce_encoded = req.data.get('nonce')
     upload_status = req.data.get('complete_status')
 
@@ -143,7 +135,6 @@ def upload_file(req, *args, **kwargs):
         file_name_encoded,
         zip_name_encoded,
         file_description_encoded,
-        offset_val_encoded,
         file_encoded,
         nonce=base64.b64decode(nonce_encoded)
         )
@@ -151,7 +142,6 @@ def upload_file(req, *args, **kwargs):
     decrypted_file_name = decrypted_datas[0].decode('utf-8')
     decrypted_zip_name = decrypted_datas[1].decode('utf-8')
     decrypted_file_desc = decrypted_datas[2].decode('utf-8')
-    decrypted_offset_val = decrypted_datas[3].decode('utf-8')
     decrypted_file_chunk = decrypted_datas[4]
 
     # offset_val = int(decrypted_offset_val)
@@ -183,11 +173,9 @@ def upload_file(req, *args, **kwargs):
     else:
         session_id = upload_session_details.get('session_id')
         offset = upload_session_details.get('offset')
-        print(session_id, offset)
 
     try:
         if upload_status == "incomplete":
-            print(offset)
             result = dbx.files_upload_session_append_v2(
                     decrypted_file_chunk, dropbox.files.UploadSessionCursor(session_id, offset)
                 )
@@ -198,7 +186,6 @@ def upload_file(req, *args, **kwargs):
                 session_id, 
                 offset=offset+len(decrypted_file_chunk))
         elif upload_status == "complete":
-            print(offset)
             result = dbx.files_upload_session_finish(
                     decrypted_file_chunk, dropbox.files.UploadSessionCursor(session_id, offset), dropbox.files.CommitInfo(upload_path)
                 )
@@ -265,7 +252,7 @@ def shorten_url(req, *args, **kwargs):
         #if there is no qs, create an instance
         alphabet = os.environ.get('SHORT_UUID_ALPHABET')
         su = shortuuid.ShortUUID(alphabet=alphabet) # Create a ShortUUID object with the custom alphabet
-        short_id = su.random(length=8) # Generate a short ID of exactly 8 characters in length
+        short_id = su.random(length=4) # Generate a short ID of exactly 4 characters in length
         short_url_base_address = os.environ.get('SHORT_URL_BASE_ADDRESS')
         model_arguments = {
             "id": short_id,
