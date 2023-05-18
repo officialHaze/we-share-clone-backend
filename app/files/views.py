@@ -217,7 +217,7 @@ def upload_file(req, *args, **kwargs):
                 file=download_url,
                 expires_on=expiration_time_str)
 
-        return Response({'detail':'uploaded', 'id':id, 'next':'true'}, status=200)
+        return Response({'detail':'uploaded', 'id':id, 'current_offset':offset}, status=200)
     except:
         # remove upload session from dictionary if any upload error occurs
         # delete_upload_session(decrypted_zip_name)
