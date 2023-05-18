@@ -29,6 +29,7 @@ INSTALLED_APPS = [
 
     'api',
     'files',
+    'upload_sessions',
 
     'corsheaders',
     'rest_framework',
@@ -51,7 +52,8 @@ CSRF_TRUSTED_ORIGINS = [
 
 #cors allowed origins
 CORS_ALLOWED_ORIGINS = [
-    'https://small-share.vercel.app'
+    'https://small-share.vercel.app',
+    'http://localhost:3000',
 ]
 
 #cors allowed headers

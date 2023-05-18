@@ -24,8 +24,6 @@ server {
 
     add_header Strict-Transport-Security "max_age=31536000; includeSubDomains" always;
 
-    add_header X-Worker-Pid $pid always;
-
     location /static {
         alias /vol/static;
     }
@@ -35,6 +33,4 @@ server {
         include                     /etc/nginx/uwsgi_params;
         client_max_body_size        50M;
     }
-
-
 }

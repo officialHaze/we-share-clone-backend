@@ -2,6 +2,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from .models import File, ShortURL
 from nacl.secret import SecretBox
+from upload_sessions.models import ZipName, FileUploadDetail
 import shortuuid
 import base64
 import datetime
@@ -9,6 +10,11 @@ import os
 import io
 import dropbox
 import dropbox.files
+
+#todo
+'''
+save the session id and offset in db
+'''
 
 app_key = os.environ.get('DROPBOX_KEY')
 app_secret = os.environ.get('DROPBOX_SECRET')
@@ -83,7 +89,42 @@ def handle_decryption(*args, nonce):
     return decrypted_datas
 
 
-upload_sessions = {}
+'''Get the upload session details'''
+def get_upload_session_details(zip_name, file_name):
+    try:
+        zip_name_instance = ZipName.objects.filter(zip_name=zip_name)[0]
+        upload_session_instance = FileUploadDetail.objects.filter(zip_name=zip_name_instance, file_name=file_name)[0]
+        session_id = upload_session_instance.session_id
+        offset = upload_session_instance.offset
+        upload_session_details = {
+            'session_id':session_id,
+            'offset':offset
+        }
+        return upload_session_details
+    except:
+        return None
+
+
+'''Start/Update the upload session'''
+def update_upload_session(zip_name, file_name, session_id, offset):
+    zip_name_instance = ZipName.objects.update_or_create(zip_name=zip_name)
+    '''populate the upload session details'''
+    try:
+        upload_session_instance = FileUploadDetail.objects.filter(file_name=file_name)[0]
+
+        upload_session_instance.session_id = session_id
+        upload_session_instance.offset = offset
+        upload_session_instance.save()
+    except:
+        FileUploadDetail.objects.create(zip_name=zip_name_instance[0], file_name=file_name,
+                                        session_id=session_id, offset=offset)
+
+
+'''delete the upload session'''
+def delete_upload_session(zip_name):
+    zip_name_instance = ZipName.objects.get(zip_name=zip_name)
+    zip_name_instance.delete()
+
 
 @api_view(["POST"])
 def upload_file(req, *args, **kwargs):
@@ -113,7 +154,7 @@ def upload_file(req, *args, **kwargs):
     decrypted_offset_val = decrypted_datas[3].decode('utf-8')
     decrypted_file_chunk = decrypted_datas[4]
 
-    offset_val = int(decrypted_offset_val)
+    # offset_val = int(decrypted_offset_val)
 
     # Set the expiration time for the uploaded file to 20 days from now
     expiration_time = datetime.datetime.now() + datetime.timedelta(days=20)
@@ -130,58 +171,58 @@ def upload_file(req, *args, **kwargs):
 
     #upload file using dropbox api
     # check if upload session already exists for this file
-    file_key = (decrypted_zip_name, decrypted_file_name)
-    if file_key not in upload_sessions:
+    upload_session_details = get_upload_session_details(decrypted_zip_name, decrypted_file_name)
+    if not upload_session_details:
         # create a new upload session
         session_start_result = dbx.files_upload_session_start(
             b"",
         )
         offset = 0
-        pid = worker_pid
         session_id = session_start_result.session_id
-        upload_sessions[file_key] = (session_id, offset, pid)
+        update_upload_session(decrypted_zip_name, decrypted_file_name, session_id, offset)
     else:
-        # retrieve session ID and offset from dictionary
-        session_id, offset, pid = upload_sessions[file_key]
+        session_id = upload_session_details.get('session_id')
+        offset = upload_session_details.get('offset')
+        print(session_id, offset)
 
-    # upload file chunk
-    if pid == worker_pid:
-        try:
-            if upload_status == "incomplete":
-                print(offset)
-                result = dbx.files_upload_session_append_v2(
-                        decrypted_file_chunk, dropbox.files.UploadSessionCursor(session_id, offset)
-                    )
-                # update offset in dictionary
-                upload_sessions[file_key] = (session_id, offset + len(decrypted_file_chunk), pid)
-            elif upload_status == "complete":
-                print(offset)
-                result = dbx.files_upload_session_finish(
-                        decrypted_file_chunk, dropbox.files.UploadSessionCursor(session_id, offset), dropbox.files.CommitInfo(upload_path)
-                    )
-                # remove upload session from dictionary when complete
-                del upload_sessions[file_key]
-                print('upload_session deleted')
+    try:
+        if upload_status == "incomplete":
+            print(offset)
+            result = dbx.files_upload_session_append_v2(
+                    decrypted_file_chunk, dropbox.files.UploadSessionCursor(session_id, offset)
+                )
+            # update offset in db
+            update_upload_session(
+                decrypted_zip_name, 
+                decrypted_file_name, 
+                session_id, 
+                offset=offset+len(decrypted_file_chunk))
+        elif upload_status == "complete":
+            print(offset)
+            result = dbx.files_upload_session_finish(
+                    decrypted_file_chunk, dropbox.files.UploadSessionCursor(session_id, offset), dropbox.files.CommitInfo(upload_path)
+                )
+            # delete the upload session
+            delete_upload_session(decrypted_zip_name)
+            print('upload_session deleted')
 
-                shared_link_obj = dbx.sharing_create_shared_link(path=download_path)
+            shared_link_obj = dbx.sharing_create_shared_link(path=download_path)
 
-                url = shared_link_obj.url
-                download_url = downloadable_url(url)
+            url = shared_link_obj.url
+            download_url = downloadable_url(url)
 
-                id = update_database(
-                    file_name=decrypted_zip_name,
-                    file_description=decrypted_file_desc,
-                    file=download_url,
-                    expires_on=expiration_time_str)
+            id = update_database(
+                file_name=decrypted_zip_name,
+                file_description=decrypted_file_desc,
+                file=download_url,
+                expires_on=expiration_time_str)
 
-            return Response({'detail':'uploaded', 'id':id, 'next':'true'}, status=200)
-        except:
-            # remove upload session from dictionary if any upload error occurs
-            del upload_sessions[file_key]
-            print('upload_session deleted due to error')
-            return Response({'detail':'upload error!'}, status=500)
-    else:
-       return Response({'detail':'not uploaded', 'id':0, 'next':'false'}, status=200) 
+        return Response({'detail':'uploaded', 'id':id, 'next':'true'}, status=200)
+    except:
+        # remove upload session from dictionary if any upload error occurs
+        # delete_upload_session(decrypted_zip_name)
+        # print('upload_session deleted due to error')
+        return Response({'detail':'upload error!'}, status=500)
 
 
 @api_view(["GET"])
