@@ -33,4 +33,4 @@ def redirect_to_long_url(req, *args, **kwargs):
 
 @api_view(["GET"])
 def connection_stream(req, *args, **kwargs):
-    return Response({'detail':'connected!'}, status=200)
+    return redirect('https://seol-share.vercel.app')
