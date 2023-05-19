@@ -52,7 +52,7 @@ CSRF_TRUSTED_ORIGINS = [
 
 #cors allowed origins
 CORS_ALLOWED_ORIGINS = [
-    'https://seol-share.vercel.app',
+    'https://seol.moi-e.in',
     'http://localhost:3000',
 ]
 
