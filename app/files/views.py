@@ -250,12 +250,12 @@ def shorten_url(req, *args, **kwargs):
         #if there is no qs, create an instance
         alphabet = os.environ.get('SHORT_UUID_ALPHABET')
         su = shortuuid.ShortUUID(alphabet=alphabet) # Create a ShortUUID object with the custom alphabet
-        short_id = su.random(length=4) # Generate a short ID of exactly 8 characters in length
+        short_id = su.random(length=4) # Generate a short ID of exactly 4 characters in length
         short_url_base_address = os.environ.get('SHORT_URL_BASE_ADDRESS')
         model_arguments = {
             "id": short_id,
             "long_url":decrypted_url,
-            "short_url": f'{short_url_base_address}/{short_id}/'
+            "short_url": f'{short_url_base_address}/{short_id}'
         }
         instance = ShortURL.objects.create(**model_arguments)
     short_url = instance.short_url

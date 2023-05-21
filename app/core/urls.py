@@ -9,5 +9,5 @@ urlpatterns = [
     path(f'admin/{admin_key}/', admin.site.urls),
     path('api/', include('api.urls')),
     path('', connection_stream),
-    re_path(r'(?P<id>\w+)/$', redirect_to_long_url),
+    re_path(r'(?P<id>\w+)', redirect_to_long_url),
 ]
